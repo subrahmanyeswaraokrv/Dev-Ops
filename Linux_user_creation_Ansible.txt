@@ -1,0 +1,185 @@
+Linux User Creation & Sudo Access Using Ansible
+
+User: venkata
+Executed from: ansible server
+Automation Tool: Ansible
+OS: Ubuntu 22.04 (targets)
+
+1️⃣ Prerequisites
+✔ Ansible Installed on Control Server
+ansible --version
+
+
+Expected:
+
+ansible [core 2.16.x]
+
+✔ Control Server User
+
+Running commands as: root
+
+Remote SSH user: touadmin
+
+touadmin has sudo access on target servers
+
+2️⃣ Directory Structure (On Ansible Server)
+/home/venkata/ansible/
+├── inventory.ini
+└── add_user_venkata.yml
+
+
+Create directory:
+
+mkdir -p /home/venkata/ansible
+cd /home/venkata/ansible
+
+3️⃣ Inventory File (Server List)
+📄 File: /home/venkata/ansible/inventory.ini
+[mongo_servers]
+192.168.61.165
+192.168.61.185
+192.168.61.135
+192.168.61.188
+192.168.61.138
+192.168.63.109
+192.168.63.110
+192.168.63.111
+192.168.61.72
+192.168.61.73
+192.168.61.74
+192.168.61.39
+192.168.61.68
+192.168.61.38
+192.168.61.180
+192.168.61.184
+
+4️⃣ Connectivity Test (Mandatory)
+🔍 Test SSH connectivity
+ansible -i inventory.ini mongo_servers -m ping -u touadmin --ask-pass
+
+
+Expected:
+
+SUCCESS => pong
+
+
+❌ Remove/comment any unreachable hosts before proceeding.
+
+5️⃣ Generate Secure Password Hash
+
+Linux stores hashed passwords, not plain text.
+
+🔐 Command Used
+python3 - <<EOF
+import crypt
+print(crypt.crypt("xuv7ooax5", crypt.mksalt(crypt.METHOD_SHA512)))
+EOF
+
+📌 Generated Hash (Example)
+$6$Ow9e8fkQEIDzbJ6h$pTdb5NG3clcMGP/4v0gJB.YSeWRqU4z3/dsjDsKG4j9p9eYlNhKuRGz21f5pK0XgPpWGs3gxpnllF995/dTgj1
+
+
+⚠️ Store hash only, never the plain password.
+
+6️⃣ Ansible Playbook (User + Sudo Access)
+📄 File: /home/venkata/ansible/add_user_venkata.yml
+---
+- name: Create Linux user venkata and grant sudo access
+  hosts: mongo_servers
+  become: yes
+
+  vars:
+    username: venkata
+    user_password: "$6$Ow9e8fkQEIDzbJ6h$pTdb5NG3clcMGP/4v0gJB.YSeWRqU4z3/dsjDsKG4j9p9eYlNhKuRGz21f5pK0XgPpWGs3gxpnllF995/dTgj1"
+
+  tasks:
+    - name: Ensure venkata user exists
+      ansible.builtin.user:
+        name: "{{ username }}"
+        password: "{{ user_password }}"
+        shell: /bin/bash
+        create_home: yes
+        state: present
+
+    - name: Add venkata to sudo group
+      ansible.builtin.user:
+        name: "{{ username }}"
+        groups: sudo
+        append: yes
+
+7️⃣ Execute the Playbook
+▶️ First-Time Run (Password Based)
+ansible-playbook -i inventory.ini add_user_venkata.yml \
+  -u touadmin --ask-pass --ask-become-pass
+
+
+Prompts:
+
+SSH password → touadmin
+
+BECOME password → touadmin
+
+8️⃣ Expected Output (Success)
+TASK [Ensure venkata user exists] → changed
+PLAY RECAP → failed=0 unreachable=0
+
+
+changed=1 → user created + sudo added
+
+Safe to re-run (idempotent)
+
+9️⃣ Verification Commands
+🔍 Check user existence
+ansible -i inventory.ini mongo_servers -u touadmin -b \
+  -m command -a "id venkata"
+
+🔍 Check sudo group
+ansible -i inventory.ini mongo_servers -u touadmin -b \
+  -m command -a "groups venkata"
+
+
+Expected:
+
+venkata : venkata sudo
+
+🔍 Manual login test
+ssh venkata@192.168.61.165
+
+🔐 Optional (Production Best Practices)
+A) Force password change on first login
+- name: Force password change on first login
+  command: chage -d 0 venkata
+
+B) Passwordless sudo for venkata (Optional)
+- name: Allow venkata passwordless sudo
+  copy:
+    dest: /etc/sudoers.d/venkata
+    content: "venkata ALL=(ALL) NOPASSWD:ALL\n"
+    mode: '0440'
+
+C) SSH Key-Based Access (Recommended)
+ssh-keygen
+ansible mongo_servers -i inventory.ini -u touadmin --ask-pass \
+  -m authorized_key \
+  -a "user=touadmin state=present key='{{ lookup('file', '/root/.ssh/id_rsa.pub') }}'"
+
+
+Then run playbooks without passwords:
+
+ansible-playbook -i inventory.ini add_user_venkata.yml -u touadmin --become
+
+🔁 Rollback (If Required)
+Remove user:
+- name: Remove venkata user
+  user:
+    name: venkata
+    state: absent
+    remove: yes
+
+✅ Final Summary
+Item	Status
+User creation	✅ Automated
+Sudo access	✅ Granted
+Security	✅ Hashed password
+Scalability	✅ Any number of servers
+Re-run safe	✅ Idempotent
