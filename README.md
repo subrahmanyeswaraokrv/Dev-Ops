@@ -41,22 +41,22 @@ Copy code
 ### Content
 ```ini
 [mongo_servers]
-192.168.61.165
-192.168.61.185
-192.168.61.135
-192.168.61.188
-192.168.61.138
-192.168.63.109
-192.168.63.110
-192.168.63.111
-192.168.61.72
-192.168.61.73
-192.168.61.74
-192.168.61.39
-192.168.61.68
-192.168.61.38
-192.168.61.180
-192.168.61.184
+10.13.61.165
+10.13.61.185
+10.13.61.135
+10.13.61.188
+10.13.61.138
+10.13.61.109
+10.13.61.110
+10.13.61.111
+10.13.61.72
+10.13.61.73
+10.13.61.74
+10.13.61.39
+10.13.61.68
+10.13.61.38
+10.13.61.180
+10.13.61.184
 Connectivity Test (Mandatory)
 Before running any playbook, verify SSH connectivity:
 
@@ -158,7 +158,7 @@ venkata : venkata sudo
 Manual Login Test
 bash
 Copy code
-ssh venkata@192.168.61.165
+ssh venkata@10.13.61.165
 Optional Enhancements
 Force password change on first login
 yaml
